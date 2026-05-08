@@ -370,7 +370,7 @@
 
         async function loadBranches() {
             try {
-                const response = await fetch(' http://localhost:3000/api/branches', {
+                const response = await fetch(' https://omanproject.onrender.com/api/branches', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -395,7 +395,7 @@
             }
             
             try {
-                const response = await fetch(` http://localhost:3000/api/customers/phone/${encodeURIComponent(phone)}`, {
+                const response = await fetch(` https://omanproject.onrender.com/api/customers/phone/${encodeURIComponent(phone)}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -433,7 +433,7 @@
             const lastName = prompt('Enter last name:');
             if (firstName && lastName) {
                 try {
-                    const response = await fetch(' http://localhost:3000/api/customers', {
+                    const response = await fetch(' https://omanproject.onrender.com/api/customers', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -626,7 +626,7 @@
 
         async function loadRecentOrders() {
             try {
-                const response = await fetch(' http://localhost:3000/api/orders?limit=20', {
+                const response = await fetch(' https://omanproject.onrender.com/api/orders?limit=20', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -710,7 +710,7 @@
 
         async function updateStats() {
             try {
-                const response = await fetch(' http://localhost:3000/api/orders?limit=100', {
+                const response = await fetch(' https://omanproject.onrender.com/api/orders?limit=100', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
