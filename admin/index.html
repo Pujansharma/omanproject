@@ -1,0 +1,626 @@
+<!-- public/admin/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Order Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .nav-link.active i {
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar w-64 bg-white shadow-lg fixed h-full">
+            <div class="p-4 border-b">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-phone-alt text-indigo-600 text-2xl"></i>
+                    <span class="font-bold text-xl">OMS Admin</span>
+                </div>
+            </div>
+            
+            <nav class="p-4">
+                <a href="#" onclick="showDashboard()" class="nav-link active flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" onclick="showBranches()" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition">
+                    <i class="fas fa-store w-5"></i>
+                    <span>Branches</span>
+                </a>
+                <a href="#" onclick="showUsers()" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition">
+                    <i class="fas fa-users w-5"></i>
+                    <span>Users</span>
+                </a>
+                <a href="#" onclick="showOrders()" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                </a>
+                <a href="#" onclick="showReports()" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition">
+                    <i class="fas fa-chart-bar w-5"></i>
+                    <span>Reports</span>
+                </a>
+            </nav>
+            
+            <div class="absolute bottom-0 w-64 p-4 border-t">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-user-circle text-gray-500 text-xl"></i>
+                        <span id="adminName" class="text-sm">Admin</span>
+                    </div>
+                    <button onclick="logout()" class="text-red-500 hover:text-red-700">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="flex-1 ml-64">
+            <!-- Header -->
+            <header class="bg-white shadow-sm">
+                <div class="px-6 py-4">
+                    <h1 id="pageTitle" class="text-2xl font-semibold text-gray-800">Dashboard</h1>
+                </div>
+            </header>
+            
+            <!-- Content Area -->
+            <main class="p-6" id="mainContent">
+                <!-- Dynamic content will be loaded here -->
+            </main>
+        </div>
+    </div>
+    
+    <script>
+        let token = localStorage.getItem('token');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+            loadAdminInfo();
+            showDashboard();
+        });
+        
+        async function loadAdminInfo() {
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('adminName').innerText = data.data.username;
+                }
+            } catch (error) {
+                console.error('Error loading admin info:', error);
+            }
+        }
+        
+        async function showDashboard() {
+            document.getElementById('pageTitle').innerText = 'Dashboard';
+            setActiveNav('Dashboard');
+            
+            try {
+                const [statsResponse, ordersResponse] = await Promise.all([
+                    fetch('http://localhost:3000/api/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch('http://localhost:3000/api/orders?limit=10', { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
+                
+                const stats = await statsResponse.json();
+                const orders = await ordersResponse.json();
+                
+                const content = `
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <div class="stat-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Total Users</p>
+                                    <p class="text-3xl font-bold">${stats.data?.users || 0}</p>
+                                </div>
+                                <i class="fas fa-users text-indigo-500 text-4xl opacity-50"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Total Branches</p>
+                                    <p class="text-3xl font-bold">${stats.data?.branches || 0}</p>
+                                </div>
+                                <i class="fas fa-store text-green-500 text-4xl opacity-50"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Total Orders</p>
+                                    <p class="text-3xl font-bold">${stats.data?.orders?.total || 0}</p>
+                                </div>
+                                <i class="fas fa-shopping-cart text-blue-500 text-4xl opacity-50"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Total Revenue</p>
+                                    <p class="text-3xl font-bold">$${stats.data?.revenue?.toFixed(2) || 0}</p>
+                                </div>
+                                <i class="fas fa-dollar-sign text-yellow-500 text-4xl opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold mb-4">Recent Orders</h3>
+                            <div class="space-y-3 max-h-96 overflow-y-auto">
+                                ${orders.data?.slice(0,5).map(order => `
+                                    <div class="border-b pb-2">
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">#${order.orderNumber}</span>
+                                            <span class="text-sm status-badge status-${order.status}">${order.status}</span>
+                                        </div>
+                                        <div class="text-sm text-gray-600">$${order.total} - ${new Date(order.createdAt).toLocaleString()}</div>
+                                    </div>
+                                `).join('') || '<p class="text-gray-500">No orders found</p>'}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
+                            <div class="space-y-3">
+                                <button onclick="showBranches()" class="w-full text-left px-4 py-3 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition">
+                                    <i class="fas fa-plus-circle text-indigo-600 mr-2"></i>
+                                    Add New Branch
+                                </button>
+                                <button onclick="showUsers()" class="w-full text-left px-4 py-3 bg-green-50 rounded-lg hover:bg-green-100 transition">
+                                    <i class="fas fa-user-plus text-green-600 mr-2"></i>
+                                    Create New User
+                                </button>
+                                <button onclick="window.location.href='/call-center/index.html'" class="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                                    <i class="fas fa-headset text-blue-600 mr-2"></i>
+                                    Open Call Center
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('mainContent').innerHTML = content;
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('mainContent').innerHTML = '<div class="text-center text-red-500">Error loading dashboard</div>';
+            }
+        }
+        
+        async function showBranches() {
+            document.getElementById('pageTitle').innerText = 'Branches';
+            setActiveNav('Branches');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/branches', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const content = `
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b flex justify-between items-center">
+                            <h3 class="text-lg font-semibold">All Branches</h3>
+                            <button onclick="showAddBranchModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                                <i class="fas fa-plus mr-2"></i>Add Branch
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${data.data?.map(branch => `
+                                        <tr>
+                                            <td class="px-6 py-4">${branch.name}</td>
+                                            <td class="px-6 py-4">${branch.code}</td>
+                                            <td class="px-6 py-4 text-sm">${branch.address?.street || 'N/A'}</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2 py-1 text-xs rounded-full ${branch.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                    ${branch.isActive ? 'Active' : 'Inactive'}
+                                                </span>
+                                                ${branch.isOnline ? '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Online</span>' : ''}
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <button onclick="editBranch('${branch._id}')" class="text-indigo-600 hover:text-indigo-800 mr-3">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button onclick="deleteBranch('${branch._id}')" class="text-red-600 hover:text-red-800">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('') || '<tr><td colspan="5" class="text-center py-4">No branches found</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('mainContent').innerHTML = content;
+            } catch (error) {
+                console.error('Error loading branches:', error);
+            }
+        }
+        
+        async function showUsers() {
+            document.getElementById('pageTitle').innerText = 'Users';
+            setActiveNav('Users');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const content = `
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b flex justify-between items-center">
+                            <h3 class="text-lg font-semibold">System Users</h3>
+                            <button onclick="showAddUserModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                                <i class="fas fa-user-plus mr-2"></i>Add User
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${data.data?.map(user => `
+                                        <tr>
+                                            <td class="px-6 py-4">${user.username}</td>
+                                            <td class="px-6 py-4">${user.email}</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">${user.role}</span>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2 py-1 text-xs rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                    ${user.isActive ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <button onclick="editUser('${user._id}')" class="text-indigo-600 hover:text-indigo-800 mr-3">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button onclick="deleteUser('${user._id}')" class="text-red-600 hover:text-red-800">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('') || '<tr><td colspan="5" class="text-center py-4">No users found</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('mainContent').innerHTML = content;
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+        
+        async function showOrders() {
+            document.getElementById('pageTitle').innerText = 'Orders';
+            setActiveNav('Orders');
+            
+            try {
+                const response = await fetch(' http://localhost:3000/api/orders?limit=50', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const content = `
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b">
+                            <h3 class="text-lg font-semibold">All Orders</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order #</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${data.data?.map(order => `
+                                        <tr>
+                                            <td class="px-6 py-4 font-mono">${order.orderNumber}</td>
+                                            <td class="px-6 py-4">${order.customer?.firstName || 'Guest'} ${order.customer?.lastName || ''}</td>
+                                            <td class="px-6 py-4">${order.branch?.name || 'N/A'}</td>
+                                            <td class="px-6 py-4">$${order.total.toFixed(2)}</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2 py-1 text-xs rounded-full status-badge status-${order.status}">${order.status}</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm">${new Date(order.createdAt).toLocaleDateString()}</td>
+                                        </tr>
+                                    `).join('') || '<tr><td colspan="6" class="text-center py-4">No orders found</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('mainContent').innerHTML = content;
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+        
+        function showReports() {
+            document.getElementById('pageTitle').innerText = 'Reports';
+            setActiveNav('Reports');
+            
+            const content = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">Sales Reports</h3>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Start Date</label>
+                                <input type="date" id="startDate" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">End Date</label>
+                                <input type="date" id="endDate" class="w-full p-2 border rounded-lg">
+                            </div>
+                        </div>
+                        <button onclick="generateReport()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                            <i class="fas fa-chart-line mr-2"></i>Generate Report
+                        </button>
+                        <div id="reportResults"></div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('mainContent').innerHTML = content;
+        }
+        
+        async function generateReport() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/orders?startDate=${startDate}&endDate=${endDate}&limit=1000`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const totalRevenue = data.data.reduce((sum, order) => sum + order.total, 0);
+                const completedOrders = data.data.filter(o => o.status === 'completed');
+                const avgOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
+                
+                document.getElementById('reportResults').innerHTML = `
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Total Revenue</p>
+                            <p class="text-2xl font-bold text-green-600">$${totalRevenue.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Completed Orders</p>
+                            <p class="text-2xl font-bold text-blue-600">${completedOrders.length}</p>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600">Average Order Value</p>
+                            <p class="text-2xl font-bold text-purple-600">$${avgOrderValue.toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h4 class="font-semibold mb-2">Order Details</h4>
+                        <div class="max-h-96 overflow-y-auto">
+                            ${data.data.map(order => `
+                                <div class="border-b py-2">
+                                    <div class="flex justify-between">
+                                        <span class="font-mono">${order.orderNumber}</span>
+                                        <span>$${order.total.toFixed(2)}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-600">${new Date(order.createdAt).toLocaleDateString()} - ${order.status}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error generating report:', error);
+                document.getElementById('reportResults').innerHTML = '<p class="text-red-500">Error generating report</p>';
+            }
+        }
+        
+        function setActiveNav(page) {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.closest('.nav-link').classList.add('active');
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+        }
+        
+        function showAddBranchModal() {
+            const modalHtml = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                        <h3 class="text-lg font-semibold mb-4">Add New Branch</h3>
+                        <form id="addBranchForm">
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium mb-1">Branch Name</label>
+                                <input type="text" name="name" required class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium mb-1">Branch Code</label>
+                                <input type="text" name="code" required class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium mb-1">Street Address</label>
+                                <input type="text" name="street" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium mb-1">City</label>
+                                <input type="text" name="city" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium mb-1">Phone</label>
+                                <input type="text" name="phone" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium mb-1">Email</label>
+                                <input type="email" name="email" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 rounded-lg">Cancel</button>
+                                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Create</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            document.getElementById('addBranchForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = {
+                    name: formData.get('name'),
+                    code: formData.get('code'),
+                    address: {
+                        street: formData.get('street'),
+                        city: formData.get('city')
+                    },
+                    phone: formData.get('phone'),
+                    email: formData.get('email')
+                };
+                
+                try {
+                    const response = await fetch(' http://localhost:3000/api/branches', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (response.ok) {
+                        e.target.closest('.fixed').remove();
+                        showBranches();
+                        alert('Branch created successfully');
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Error creating branch');
+                    }
+                } catch (error) {
+                    alert('Error creating branch');
+                }
+            });
+        }
+        
+        async function deleteBranch(branchId) {
+            if (confirm('Are you sure you want to delete this branch?')) {
+                try {
+                    const response = await fetch(`http://localhost:3000/api/branches/${branchId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (response.ok) {
+                        showBranches();
+                        alert('Branch deleted successfully');
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Error deleting branch');
+                    }
+                } catch (error) {
+                    alert('Error deleting branch');
+                }
+            }
+        }
+        
+        async function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                try {
+                    const response = await fetch(`http://localhost:3000/api/admin/users/${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (response.ok) {
+                        showUsers();
+                        alert('User deleted successfully');
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Error deleting user');
+                    }
+                } catch (error) {
+                    alert('Error deleting user');
+                }
+            }
+        }
+        
+        function editBranch(branchId) {
+            alert('Edit functionality - implement as needed');
+        }
+        
+        function editUser(userId) {
+            alert('Edit functionality - implement as needed');
+        }
+        
+        function showAddUserModal() {
+            alert('Add user functionality - implement as needed');
+        }
+    </script>
+</body>
+</html>

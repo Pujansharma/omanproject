@@ -1,0 +1,553 @@
+<!-- public/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Centralized Order Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        .login-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            padding: 40px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .logo-icon i {
+            font-size: 40px;
+            color: white;
+        }
+        
+        .logo-container h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 8px;
+        }
+        
+        .logo-container p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .input-wrapper {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px 15px 12px 45px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        .input-field:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s ease;
+        }
+        
+        .password-toggle:hover {
+            color: #667eea;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .login-btn:active {
+            transform: translateY(0);
+        }
+        
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .demo-credentials {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .demo-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        
+        .demo-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .demo-card:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        
+        .demo-card.selected {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+        
+        .demo-role {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .demo-creds {
+            font-size: 11px;
+            color: #666;
+            font-family: monospace;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .error-message.show {
+            display: flex;
+        }
+        
+        .error-message i {
+            font-size: 18px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 30px 20px;
+            }
+            
+            .logo-container h1 {
+                font-size: 24px;
+            }
+            
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-gradient">
+        <div class="login-card">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fas fa-phone-alt"></i>
+                </div>
+                <h1>Order Management System</h1>
+                <p>Centralized Call Center & POS Integration</p>
+            </div>
+            
+            <div id="errorMessage" class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorText"></span>
+            </div>
+            
+            <form id="loginForm">
+                <div class="input-group">
+                    <label class="input-label">
+                        <i class="fas fa-user"></i> Username
+                    </label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" id="username" class="input-field" placeholder="Enter your username" required autocomplete="username">
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">
+                        <i class="fas fa-lock"></i> Password
+                    </label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="password" class="input-field" placeholder="Enter your password" required autocomplete="current-password">
+                        <i class="fas fa-eye password-toggle" id="togglePassword"></i>
+                    </div>
+                </div>
+                
+                <button type="submit" id="loginBtn" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+            </form>
+            
+            <div class="demo-credentials">
+                <div class="demo-title">
+                    <i class="fas fa-info-circle"></i> Demo Credentials
+                </div>
+                <div class="demo-grid">
+                    <div class="demo-card" data-username="callcenter" data-password="password123">
+                        <div class="demo-role">
+                            <i class="fas fa-headset"></i> Call Center
+                        </div>
+                        <div class="demo-creds">callcenter / password123</div>
+                    </div>
+                    <div class="demo-card" data-username="branch_dt" data-password="password123">
+                        <div class="demo-role">
+                            <i class="fas fa-store"></i> Branch Staff
+                        </div>
+                        <div class="demo-creds">branch_dt / password123</div>
+                    </div>
+                    <div class="demo-card" data-username="admin" data-password="password123">
+                        <div class="demo-role">
+                            <i class="fas fa-crown"></i> Admin
+                        </div>
+                        <div class="demo-creds">admin / password123</div>
+                    </div>
+                </div>
+                <p style="text-align: center; font-size: 12px; color: #999; margin-top: 15px;">
+                    <i class="fas fa-shield-alt"></i> Secure login with JWT authentication
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const togglePassword = document.getElementById('togglePassword');
+        
+        // Demo credentials selection
+        const demoCards = document.querySelectorAll('.demo-card');
+        
+        // Toggle password visibility
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+        
+        // Demo credentials autofill
+        demoCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const username = card.getAttribute('data-username');
+                const password = card.getAttribute('data-password');
+                
+                usernameInput.value = username;
+                passwordInput.value = password;
+                
+                // Remove selected class from all cards
+                demoCards.forEach(c => c.classList.remove('selected'));
+                // Add selected class to clicked card
+                card.classList.add('selected');
+                
+                // Clear any existing error
+                hideError();
+                
+                // Optional: auto-submit after a short delay
+                // setTimeout(() => loginForm.dispatchEvent(new Event('submit')), 500);
+            });
+        });
+        
+        // Show error message
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.add('show');
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+        
+        function hideError() {
+            errorMessage.classList.remove('show');
+        }
+        
+        // Set loading state
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="loading-spinner"></span> Authenticating...';
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            }
+        }
+        
+        // Handle login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            
+            // Validation
+            if (!username) {
+                showError('Please enter your username');
+                usernameInput.focus();
+                return;
+            }
+            
+            if (!password) {
+                showError('Please enter your password');
+                passwordInput.focus();
+                return;
+            }
+            
+            setLoading(true);
+            hideError();
+            
+            try {
+                const response = await fetch(' http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Store token
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Show success message briefly
+                    loginBtn.innerHTML = '<i class="fas fa-check"></i> Success! Redirecting...';
+                    
+                    // Redirect based on role
+                    setTimeout(() => {
+                        if (data.user.role === 'call_center') {
+                            window.location.href = '/call-center/index.html';
+                        } else if (data.user.role === 'branch_staff') {
+                            window.location.href = '/pos/index.html';
+                        } else if (data.user.role === 'admin') {
+                            window.location.href = '/admin/index.html';
+                        } else {
+                            window.location.href = '/dashboard.html';
+                        }
+                    }, 1000);
+                } else {
+                    showError(data.error || 'Login failed. Please check your credentials.');
+                    setLoading(false);
+                    
+                    // Clear password field on error
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Network error. Please check if the server is running.');
+                setLoading(false);
+            }
+        });
+        
+        // Check if user is already logged in
+        function checkExistingSession() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Verify token is still valid
+                fetch(' http://localhost:3000/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        // Redirect to appropriate dashboard
+                        const user = data.data;
+                        if (user.role === 'call_center') {
+                            window.location.href = '/call-center/index.html';
+                        } else if (user.role === 'branch_staff') {
+                            window.location.href = '/pos/index.html';
+                        } else if (user.role === 'admin') {
+                            window.location.href = '/admin/index.html';
+                        }
+                    } else {
+                        // Token invalid, clear it
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                });
+            }
+        }
+        
+        // Add enter key support
+        usernameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && usernameInput.value.trim()) {
+                passwordInput.focus();
+            }
+        });
+        
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && passwordInput.value) {
+                loginForm.dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        // Auto-focus on username field
+        usernameInput.focus();
+        
+        // Check for existing session on page load
+        checkExistingSession();
+        
+        // Add some nice animations
+        document.querySelectorAll('.input-field').forEach(field => {
+            field.addEventListener('focus', () => {
+                field.parentElement.parentElement.classList.add('focused');
+            });
+            
+            field.addEventListener('blur', () => {
+                if (!field.value) {
+                    field.parentElement.parentElement.classList.remove('focused');
+                }
+            });
+        });
+        
+        // Version info
+        console.log('Login page loaded - Order Management System v1.0.0');
+    </script>
+</body>
+</html>

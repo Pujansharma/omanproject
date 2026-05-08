@@ -1,0 +1,824 @@
+<!-- public/call-center/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Center Dashboard - Order Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .order-card {
+            transition: all 0.3s ease;
+        }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-pending { background: #FEF3C7; color: #92400E; }
+        .status-confirmed { background: #DBEAFE; color: #1E40AF; }
+        .status-preparing { background: #E0E7FF; color: #3730A3; }
+        .status-ready { background: #D1FAE5; color: #065F46; }
+        .status-completed { background: #D1FAE5; color: #065F46; }
+        .status-cancelled { background: #FEE2E2; color: #991B1B; }
+        .branch-online { color: #10B981; }
+        .branch-offline { color: #EF4444; }
+        .search-highlight {
+            background-color: #FEF3C7;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        body {
+            background: #f3f4f6;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <nav class="bg-white shadow-lg sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <i class="fas fa-phone-alt text-indigo-600 text-2xl"></i>
+                        <span class="font-bold text-xl text-gray-800">Call Center Dashboard</span>
+                        <span class="text-sm text-gray-500" id="agentName"></span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2" id="connectionStatus">
+                            <i class="fas fa-circle text-green-500 text-xs"></i>
+                            <span class="text-sm text-gray-600">Connected</span>
+                        </div>
+                        <button onclick="logout()" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Today's Orders</p>
+                            <p class="text-2xl font-bold" id="todayOrders">0</p>
+                        </div>
+                        <i class="fas fa-shopping-cart text-indigo-500 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Pending Orders</p>
+                            <p class="text-2xl font-bold" id="pendingOrders">0</p>
+                        </div>
+                        <i class="fas fa-clock text-yellow-500 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Active Branches</p>
+                            <p class="text-2xl font-bold" id="activeBranches">0</p>
+                        </div>
+                        <i class="fas fa-store text-green-500 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Total Revenue</p>
+                            <p class="text-2xl font-bold" id="todayRevenue">$0</p>
+                        </div>
+                        <i class="fas fa-dollar-sign text-green-500 text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Customer Search & Order Form -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-lg shadow-lg sticky top-20">
+                        <!-- Customer Search -->
+                        <div class="p-4 border-b">
+                            <h3 class="text-lg font-semibold mb-3">Customer Lookup</h3>
+                            <div class="space-y-3">
+                                <div class="relative">
+                                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                                    <input type="text" id="phoneSearch" placeholder="Enter phone number (e.g., +1234567890)" 
+                                           class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <button onclick="searchCustomer()" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition">
+                                    <i class="fas fa-search mr-2"></i>Search Customer
+                                </button>
+                            </div>
+                            
+                            <!-- Customer Info Card -->
+                            <div id="customerInfo" class="hidden mt-4 p-3 bg-gray-50 rounded-lg">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="font-semibold" id="customerName"></p>
+                                        <p class="text-sm text-gray-600" id="customerPhone"></p>
+                                        <p class="text-sm text-gray-600" id="customerVehicle"></p>
+                                    </div>
+                                    <button onclick="clearCustomer()" class="text-red-500 text-sm">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-2 text-sm">
+                                    <span class="font-medium">Total Orders:</span> <span id="totalOrders"></span> |
+                                    <span class="font-medium">Total Spent:</span> $<span id="totalSpent"></span>
+                                </div>
+                                <button onclick="viewOrderHistory()" class="mt-2 text-indigo-600 text-sm hover:underline">
+                                    <i class="fas fa-history mr-1"></i>View Order History
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Order Form -->
+                        <div class="p-4">
+                            <h3 class="text-lg font-semibold mb-3">New Order</h3>
+                            <div class="space-y-3">
+                                <select id="branchSelect" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="">Select Branch</option>
+                                </select>
+                                
+                                <select id="orderType" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="takeaway">Takeaway</option>
+                                    <option value="curbside">Curbside Pickup</option>
+                                </select>
+                                
+                                <div class="relative">
+                                    <i class="fas fa-car absolute left-3 top-3 text-gray-400"></i>
+                                    <input type="text" id="vehiclePlate" placeholder="Car Plate Number (required for curbside)" 
+                                           class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                
+                                <textarea id="specialInstructions" rows="2" placeholder="Special instructions (optional)" 
+                                          class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                                
+                                <!-- Menu Items -->
+                                <div class="border-t pt-3">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <label class="font-medium">Menu Items</label>
+                                        <button type="button" onclick="addMenuItem()" class="text-indigo-600 text-sm hover:text-indigo-800">
+                                            <i class="fas fa-plus mr-1"></i>Add Item
+                                        </button>
+                                    </div>
+                                    <div id="menuItems" class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin"></div>
+                                </div>
+                                
+                                <!-- Order Summary -->
+                                <div class="border-t pt-3">
+                                    <div class="flex justify-between mb-1">
+                                        <span>Subtotal:</span>
+                                        <span>$<span id="subtotal">0.00</span></span>
+                                    </div>
+                                    <div class="flex justify-between mb-1">
+                                        <span>Tax (10%):</span>
+                                        <span>$<span id="tax">0.00</span></span>
+                                    </div>
+                                    <div class="flex justify-between font-bold text-lg">
+                                        <span>Total:</span>
+                                        <span>$<span id="total">0.00</span></span>
+                                    </div>
+                                </div>
+                                
+                                <button onclick="submitOrder()" id="submitOrderBtn" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fas fa-paper-plane mr-2"></i>Send to Branch
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Orders & Branch Status -->
+                <div class="lg:col-span-2">
+                    <!-- Branch Status -->
+                    <div class="bg-white rounded-lg shadow-lg mb-6">
+                        <div class="p-4 border-b">
+                            <h3 class="text-lg font-semibold">Branch Status</h3>
+                        </div>
+                        <div class="p-4">
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="branchStatusList">
+                                <!-- Branch status cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Orders -->
+                    <div class="bg-white rounded-lg shadow-lg">
+                        <div class="p-4 border-b flex justify-between items-center">
+                            <h3 class="text-lg font-semibold">Recent Orders</h3>
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                                <input type="text" id="filterOrders" placeholder="Filter orders..." 
+                                       class="pl-8 pr-4 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                        <div class="divide-y max-h-96 overflow-y-auto scrollbar-thin" id="recentOrdersList">
+                            <!-- Orders will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order History Modal -->
+    <div id="orderHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 modal">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Order History</h3>
+                <button onclick="closeOrderHistory()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="orderHistoryContent" class="p-4 overflow-y-auto max-h-96"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg hidden transition-all duration-300 z-50">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = null;
+        let currentCustomer = null;
+        let menuItemsList = [];
+        let token = localStorage.getItem('token');
+        let currentOrders = [];
+
+        // Sample menu items (in production, fetch from API)
+        const menuCatalog = {
+            'burger': { name: 'Classic Burger', price: 8.99 },
+            'cheese_burger': { name: 'Cheese Burger', price: 9.99 },
+            'fries': { name: 'French Fries', price: 3.99 },
+            'onion_rings': { name: 'Onion Rings', price: 4.99 },
+            'soda': { name: 'Soft Drink', price: 1.99 },
+            'salad': { name: 'Garden Salad', price: 6.99 },
+            'chicken_wings': { name: 'Chicken Wings (6pcs)', price: 7.99 },
+            'milkshake': { name: 'Milkshake', price: 4.99 }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            loadBranches();
+            connectWebSocket();
+            loadRecentOrders();
+            updateMenuItemsDisplay();
+            setInterval(updateStats, 30000);
+            
+            // Filter orders
+            document.getElementById('filterOrders').addEventListener('input', (e) => {
+                filterOrders(e.target.value);
+            });
+            
+            // Phone search on enter
+            document.getElementById('phoneSearch').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchCustomer();
+            });
+            
+            // Auto-fill vehicle plate for curbside
+            document.getElementById('orderType').addEventListener('change', (e) => {
+                if (e.target.value === 'curbside') {
+                    document.getElementById('vehiclePlate').required = true;
+                    document.getElementById('vehiclePlate').placeholder = 'Car Plate Number (required)';
+                } else {
+                    document.getElementById('vehiclePlate').required = false;
+                    document.getElementById('vehiclePlate').placeholder = 'Car Plate Number (optional)';
+                }
+            });
+        });
+
+        function connectWebSocket() {
+            socket = io({
+                auth: { token },
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', () => {
+                showToast('Connected to server', 'success');
+                document.getElementById('connectionStatus').innerHTML = `
+                    <i class="fas fa-circle text-green-500 text-xs"></i>
+                    <span class="text-sm text-gray-600">Connected</span>
+                `;
+                updateStats();
+            });
+            
+            socket.on('disconnect', () => {
+                showToast('Disconnected from server', 'error');
+                document.getElementById('connectionStatus').innerHTML = `
+                    <i class="fas fa-circle text-red-500 text-xs"></i>
+                    <span class="text-sm text-gray-600">Disconnected</span>
+                `;
+            });
+            
+            socket.on('pending_orders', (orders) => {
+                currentOrders = orders;
+                displayRecentOrders(orders);
+                updateStats();
+            });
+            
+            socket.on('order_updated', (data) => {
+                showToast(`Order ${data.orderId} status updated to ${data.status}`, 'info');
+                loadRecentOrders();
+                updateStats();
+            });
+            
+            socket.on('branch_status', (branches) => {
+                displayBranchStatus(branches);
+            });
+        }
+
+        async function loadBranches() {
+            try {
+                const response = await fetch(' http://localhost:3000/api/branches', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const select = document.getElementById('branchSelect');
+                    select.innerHTML = '<option value="">Select Branch</option>';
+                    data.data.forEach(branch => {
+                        select.innerHTML += `<option value="${branch._id}">${branch.name}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading branches:', error);
+                showToast('Error loading branches', 'error');
+            }
+        }
+
+        async function searchCustomer() {
+            const phone = document.getElementById('phoneSearch').value.trim();
+            if (!phone) {
+                showToast('Please enter a phone number', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch(` http://localhost:3000/api/customers/phone/${encodeURIComponent(phone)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentCustomer = data.data.customer;
+                    document.getElementById('customerInfo').classList.remove('hidden');
+                    document.getElementById('customerName').innerHTML = `${currentCustomer.firstName} ${currentCustomer.lastName}`;
+                    document.getElementById('customerPhone').innerHTML = `<i class="fas fa-phone mr-1"></i>${currentCustomer.phoneNumber}`;
+                    document.getElementById('customerVehicle').innerHTML = currentCustomer.vehicleDetails?.plateNumber ? 
+                        `<i class="fas fa-car mr-1"></i>${currentCustomer.vehicleDetails.plateNumber}` : 'No vehicle registered';
+                    document.getElementById('totalOrders').innerText = currentCustomer.totalOrders || 0;
+                    document.getElementById('totalSpent').innerText = (currentCustomer.totalSpent || 0).toFixed(2);
+                    
+                    // Auto-fill vehicle if available
+                    if (currentCustomer.vehicleDetails?.plateNumber) {
+                        document.getElementById('vehiclePlate').value = currentCustomer.vehicleDetails.plateNumber;
+                    }
+                    
+                    showToast('Customer found', 'success');
+                } else {
+                    // Offer to create new customer
+                    if (confirm('Customer not found. Would you like to create a new customer?')) {
+                        createNewCustomer(phone);
+                    }
+                }
+            } catch (error) {
+                console.error('Error searching customer:', error);
+                showToast('Error searching customer', 'error');
+            }
+        }
+
+        async function createNewCustomer(phone) {
+            const firstName = prompt('Enter first name:');
+            const lastName = prompt('Enter last name:');
+            if (firstName && lastName) {
+                try {
+                    const response = await fetch(' http://localhost:3000/api/customers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            phoneNumber: phone,
+                            firstName,
+                            lastName,
+                            vehicleDetails: { plateNumber: document.getElementById('vehiclePlate').value || '' }
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        currentCustomer = data.data;
+                        showToast('Customer created successfully', 'success');
+                        searchCustomer(); // Refresh display
+                    }
+                } catch (error) {
+                    showToast('Error creating customer', 'error');
+                }
+            }
+        }
+
+        function clearCustomer() {
+            currentCustomer = null;
+            document.getElementById('customerInfo').classList.add('hidden');
+            document.getElementById('phoneSearch').value = '';
+        }
+
+        function addMenuItem() {
+            const itemId = `item_${Date.now()}`;
+            menuItemsList.push({
+                id: itemId,
+                productId: '',
+                name: '',
+                quantity: 1,
+                unitPrice: 0,
+                totalPrice: 0
+            });
+            updateMenuItemsDisplay();
+        }
+
+        function removeMenuItem(index) {
+            menuItemsList.splice(index, 1);
+            updateMenuItemsDisplay();
+            calculateTotals();
+        }
+
+        function updateMenuItem(index, field, value) {
+            if (field === 'productId') {
+                const product = menuCatalog[value];
+                if (product) {
+                    menuItemsList[index].productId = value;
+                    menuItemsList[index].name = product.name;
+                    menuItemsList[index].unitPrice = product.price;
+                    menuItemsList[index].totalPrice = product.price * menuItemsList[index].quantity;
+                }
+            } else if (field === 'quantity') {
+                const qty = parseInt(value) || 0;
+                menuItemsList[index].quantity = qty;
+                menuItemsList[index].totalPrice = menuItemsList[index].unitPrice * qty;
+            }
+            calculateTotals();
+            updateMenuItemsDisplay();
+        }
+
+        function updateMenuItemsDisplay() {
+            const container = document.getElementById('menuItems');
+            if (menuItemsList.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-2">No items added. Click "Add Item" to start.</p>';
+                return;
+            }
+            
+            container.innerHTML = menuItemsList.map((item, idx) => `
+                <div class="bg-gray-50 p-2 rounded-lg">
+                    <div class="flex gap-2 mb-2">
+                        <select class="flex-1 p-1.5 border rounded text-sm" onchange="updateMenuItem(${idx}, 'productId', this.value)">
+                            <option value="">Select item</option>
+                            ${Object.entries(menuCatalog).map(([id, product]) => 
+                                `<option value="${id}" ${item.productId === id ? 'selected' : ''}>${product.name} - $${product.price}</option>`
+                            ).join('')}
+                        </select>
+                        <input type="number" value="${item.quantity}" min="1" class="w-20 p-1.5 border rounded text-sm" 
+                               onchange="updateMenuItem(${idx}, 'quantity', this.value)">
+                        <button onclick="removeMenuItem(${idx})" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="text-right text-sm font-medium">
+                        Total: $${item.totalPrice.toFixed(2)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function calculateTotals() {
+            const subtotal = menuItemsList.reduce((sum, item) => sum + item.totalPrice, 0);
+            const tax = subtotal * 0.10;
+            const total = subtotal + tax;
+            
+            document.getElementById('subtotal').innerText = subtotal.toFixed(2);
+            document.getElementById('tax').innerText = tax.toFixed(2);
+            document.getElementById('total').innerText = total.toFixed(2);
+        }
+
+        function submitOrder() {
+            if (!currentCustomer) {
+                showToast('Please search and select a customer first', 'warning');
+                return;
+            }
+            
+            const branchId = document.getElementById('branchSelect').value;
+            if (!branchId) {
+                showToast('Please select a branch', 'warning');
+                return;
+            }
+            
+            if (menuItemsList.length === 0) {
+                showToast('Please add at least one menu item', 'warning');
+                return;
+            }
+            
+            const orderType = document.getElementById('orderType').value;
+            const vehiclePlate = document.getElementById('vehiclePlate').value;
+            
+            if (orderType === 'curbside' && !vehiclePlate) {
+                showToast('Car plate number is required for curbside pickup', 'warning');
+                return;
+            }
+            
+            const validItems = menuItemsList.filter(item => item.productId && item.quantity > 0);
+            if (validItems.length === 0) {
+                showToast('Please select valid menu items', 'warning');
+                return;
+            }
+            
+            const subtotal = validItems.reduce((sum, item) => sum + item.totalPrice, 0);
+            const tax = subtotal * 0.10;
+            const total = subtotal + tax;
+            
+            const orderData = {
+                customer: currentCustomer._id,
+                customerFirstName: currentCustomer.firstName,
+                customerLastName: currentCustomer.lastName,
+                customerPhone: currentCustomer.phoneNumber,
+                vehiclePlateNumber: vehiclePlate || currentCustomer.vehicleDetails?.plateNumber,
+                branch: branchId,
+                items: validItems.map(item => ({
+                    productId: item.productId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    totalPrice: item.totalPrice
+                })),
+                subtotal,
+                tax,
+                total,
+                orderType,
+                specialInstructions: document.getElementById('specialInstructions').value,
+                autoPrint: true
+            };
+            
+            const submitBtn = document.getElementById('submitOrderBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+            
+            socket.emit('new_order', orderData, (response) => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send to Branch';
+                
+                if (response.success) {
+                    showToast(`Order ${response.orderNumber} sent successfully to branch!`, 'success');
+                    resetOrderForm();
+                    loadRecentOrders();
+                    updateStats();
+                } else {
+                    showToast(`Error: ${response.error}`, 'error');
+                }
+            });
+        }
+
+        function resetOrderForm() {
+            menuItemsList = [];
+            updateMenuItemsDisplay();
+            document.getElementById('specialInstructions').value = '';
+            calculateTotals();
+            // Keep customer but reset other fields
+        }
+
+        async function loadRecentOrders() {
+            try {
+                const response = await fetch(' http://localhost:3000/api/orders?limit=20', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentOrders = data.data;
+                    displayRecentOrders(data.data);
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        function displayRecentOrders(orders) {
+            const container = document.getElementById('recentOrdersList');
+            if (!orders || orders.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-gray-500">No orders found</div>';
+                return;
+            }
+            
+            container.innerHTML = orders.map(order => `
+                <div class="p-4 hover:bg-gray-50 transition order-card" data-order-id="${order._id}">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="font-semibold">#${order.orderNumber}</span>
+                                <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span>
+                                ${order.source === 'call_center' ? '<span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded"><i class="fas fa-phone-alt mr-1"></i>Call Center</span>' : ''}
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <div><i class="fas fa-user mr-1"></i>${order.customer?.firstName || 'N/A'} ${order.customer?.lastName || ''}</div>
+                                <div><i class="fas fa-phone mr-1"></i>${order.customerPhone}</div>
+                                ${order.vehiclePlateNumber ? `<div><i class="fas fa-car mr-1"></i>${order.vehiclePlateNumber}</div>` : ''}
+                                <div><i class="fas fa-store mr-1"></i>${order.branch?.name || 'N/A'}</div>
+                                <div><i class="fas fa-clock mr-1"></i>${new Date(order.createdAt).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold text-lg">$${order.total.toFixed(2)}</div>
+                            <div class="text-sm ${order.paymentStatus === 'paid' ? 'text-green-600' : 'text-red-600'}">
+                                ${order.paymentStatus === 'paid' ? '✓ Paid' : '⚠ Unpaid'}
+                            </div>
+                            <button onclick="viewOrderDetails('${order._id}')" class="mt-2 text-indigo-600 text-sm hover:underline">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterOrders(searchTerm) {
+            if (!searchTerm) {
+                displayRecentOrders(currentOrders);
+                return;
+            }
+            
+            const filtered = currentOrders.filter(order => 
+                order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (order.customerPhone && order.customerPhone.includes(searchTerm)) ||
+                (order.vehiclePlateNumber && order.vehiclePlateNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+            displayRecentOrders(filtered);
+        }
+
+        function displayBranchStatus(branches) {
+            const container = document.getElementById('branchStatusList');
+            container.innerHTML = branches.map(branch => `
+                <div class="border rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-semibold">${branch.name}</span>
+                        <i class="fas fa-circle ${branch.isOnline ? 'branch-online' : 'branch-offline'} text-xs"></i>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        <div>Status: ${branch.isOnline ? '<span class="text-green-600">Online</span>' : '<span class="text-red-600">Offline</span>'}</div>
+                        ${branch.lastHeartbeat ? `<div>Last active: ${new Date(branch.lastHeartbeat).toLocaleTimeString()}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateStats() {
+            try {
+                const response = await fetch(' http://localhost:3000/api/orders?limit=100', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const today = new Date().toDateString();
+                    const todayOrders = data.data.filter(order => new Date(order.createdAt).toDateString() === today);
+                    const pendingOrders = data.data.filter(order => ['pending', 'confirmed', 'preparing'].includes(order.status));
+                    const todayRevenue = todayOrders.reduce((sum, order) => sum + order.total, 0);
+                    
+                    document.getElementById('todayOrders').innerText = todayOrders.length;
+                    document.getElementById('pendingOrders').innerText = pendingOrders.length;
+                    document.getElementById('todayRevenue').innerText = todayRevenue.toFixed(2);
+                }
+                
+                // Get branch status
+                socket.emit('get_branch_status');
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        function viewOrderDetails(orderId) {
+            const order = currentOrders.find(o => o._id === orderId);
+            if (order) {
+                const itemsHtml = order.items.map(item => `
+                    <div class="flex justify-between text-sm py-1">
+                        <span>${item.quantity}x ${item.name}</span>
+                        <span>$${item.totalPrice.toFixed(2)}</span>
+                    </div>
+                `).join('');
+                
+                alert(`Order Details:
+                Order #: ${order.orderNumber}
+                Customer: ${order.customer?.firstName} ${order.customer?.lastName}
+                Phone: ${order.customerPhone}
+                ${order.vehiclePlateNumber ? `Vehicle: ${order.vehiclePlateNumber}` : ''}
+                
+                Items:
+                ${itemsHtml}
+                
+                Subtotal: $${order.subtotal.toFixed(2)}
+                Tax: $${order.tax.toFixed(2)}
+                Total: $${order.total.toFixed(2)}
+                
+                Status: ${order.status}
+                Payment: ${order.paymentStatus}
+                `);
+            }
+        }
+
+        function viewOrderHistory() {
+            if (!currentCustomer) return;
+            
+            const modal = document.getElementById('orderHistoryModal');
+            const content = document.getElementById('orderHistoryContent');
+            
+            const customerOrders = currentOrders.filter(order => order.customer?._id === currentCustomer._id);
+            
+            if (customerOrders.length === 0) {
+                content.innerHTML = '<p class="text-center text-gray-500">No order history found</p>';
+            } else {
+                content.innerHTML = customerOrders.map(order => `
+                    <div class="border-b pb-3 mb-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="font-semibold">#${order.orderNumber}</span>
+                                <span class="status-badge status-${order.status} ml-2">${order.status}</span>
+                            </div>
+                            <span class="font-bold">$${order.total.toFixed(2)}</span>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-1">
+                            <div>${new Date(order.createdAt).toLocaleDateString()}</div>
+                            <div>${order.branch?.name}</div>
+                            <div>${order.items.length} items</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeOrderHistory() {
+            const modal = document.getElementById('orderHistoryModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toastMessage.innerText = message;
+            toast.classList.remove('hidden');
+            
+            const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : type === 'warning' ? 'bg-yellow-600' : 'bg-gray-800';
+            toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg transition-all duration-300 z-50`;
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

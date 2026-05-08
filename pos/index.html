@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS System - Branch Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background: #f3f4f6; }
+        .order-card { cursor: pointer; transition: all 0.2s ease; background: white; border-radius: 12px; }
+        .order-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .status-pending { background: #FEF3C7; color: #92400E; }
+        .status-confirmed { background: #DBEAFE; color: #1E40AF; }
+        .status-preparing { background: #E0E7FF; color: #3730A3; }
+        .status-ready { background: #D1FAE5; color: #065F46; }
+        .status-completed { background: #D1FAE5; color: #065F46; }
+        .toast { position: fixed; bottom: 20px; right: 20px; z-index: 1000; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-50">
+            <div class="px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <i class="fas fa-cash-register text-indigo-600 text-2xl"></i>
+                        <div>
+                            <h1 class="text-xl font-bold" id="branchName">POS System</h1>
+                            <p class="text-sm text-gray-500" id="branchAddress"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2" id="connectionStatus">
+                            <i class="fas fa-circle text-green-500 text-xs"></i>
+                            <span class="text-sm">Connected</span>
+                        </div>
+                        <button onclick="logout()" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div><p class="text-gray-500 text-sm">Pending Orders</p><p class="text-2xl font-bold" id="pendingCount">0</p></div>
+                        <i class="fas fa-clock text-yellow-500 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div><p class="text-gray-500 text-sm">Preparing</p><p class="text-2xl font-bold" id="preparingCount">0</p></div>
+                        <i class="fas fa-cooking text-blue-500 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div><p class="text-gray-500 text-sm">Ready for Pickup</p><p class="text-2xl font-bold" id="readyCount">0</p></div>
+                        <i class="fas fa-bell text-green-500 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div><p class="text-gray-500 text-sm">Today's Revenue</p><p class="text-2xl font-bold" id="todayRevenue">$0</p></div>
+                        <i class="fas fa-dollar-sign text-indigo-500 text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="bg-white rounded-lg shadow mb-6 p-4">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" id="searchOrders" placeholder="Search by Phone Number or Car Plate..." 
+                           class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex space-x-2 mt-3">
+                    <button onclick="filterOrders('all')" class="filter-btn px-3 py-1 rounded-lg text-sm bg-indigo-600 text-white">All</button>
+                    <button onclick="filterOrders('pending')" class="filter-btn px-3 py-1 rounded-lg text-sm bg-gray-200">Pending</button>
+                    <button onclick="filterOrders('confirmed')" class="filter-btn px-3 py-1 rounded-lg text-sm bg-gray-200">Confirmed</button>
+                    <button onclick="filterOrders('preparing')" class="filter-btn px-3 py-1 rounded-lg text-sm bg-gray-200">Preparing</button>
+                    <button onclick="filterOrders('ready')" class="filter-btn px-3 py-1 rounded-lg text-sm bg-gray-200">Ready</button>
+                    <button onclick="filterOrders('completed')" class="filter-btn px-3 py-1 rounded-lg text-sm bg-gray-200">Completed</button>
+                </div>
+            </div>
+
+            <!-- Orders Grid -->
+            <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="col-span-full text-center py-12 text-gray-500">Loading orders...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-90vh overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="text-lg font-semibold" id="modalTitle">Order Details</h3>
+                <button onclick="closeOrderModal()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="orderModalContent" class="p-4 overflow-y-auto max-h-96"></div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end space-x-3" id="modalActions"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"><div class="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg"><span id="toastMessage"></span></div></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = null;
+        let token = localStorage.getItem('token');
+        let currentOrders = [];
+        let currentFilter = 'all';
+        let currentBranch = null;
+        
+        if (!token) window.location.href = '/login.html';
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('POS page loaded');
+            loadBranchInfo();
+            connectWebSocket();
+            loadOrders();
+            setInterval(loadOrders, 10000); // Refresh every 10 seconds
+        });
+        
+        async function loadBranchInfo() {
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                console.log('User data:', data);
+                if (data.success && data.data.branch) {
+                    currentBranch = data.data.branch;
+                    document.getElementById('branchName').innerHTML = `<i class="fas fa-store mr-2"></i>${currentBranch.name}`;
+                    document.getElementById('branchAddress').innerText = currentBranch.address?.street || 'Branch Location';
+                } else {
+                    document.getElementById('branchName').innerHTML = '<i class="fas fa-store mr-2"></i>Branch POS';
+                }
+            } catch (error) {
+                console.error('Error loading branch info:', error);
+            }
+        }
+        
+        function connectWebSocket() {
+            socket = io({
+                auth: { token },
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', () => {
+                console.log('WebSocket connected');
+                showToast('Connected to server', 'success');
+                document.getElementById('connectionStatus').innerHTML = `
+                    <i class="fas fa-circle text-green-500 text-xs"></i>
+                    <span class="text-sm">Connected</span>
+                `;
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('WebSocket disconnected');
+                showToast('Disconnected from server', 'error');
+                document.getElementById('connectionStatus').innerHTML = `
+                    <i class="fas fa-circle text-red-500 text-xs"></i>
+                    <span class="text-sm">Disconnected</span>
+                `;
+            });
+            
+            socket.on('new_order', (order) => {
+                console.log('New order received:', order);
+                showToast(`New order #${order.orderNumber} received!`, 'success');
+                playNotificationSound();
+                loadOrders(); // Refresh orders
+            });
+            
+            socket.on('order_updated', (data) => {
+                console.log('Order updated:', data);
+                loadOrders();
+            });
+            
+            // Send heartbeat every 30 seconds
+            setInterval(() => {
+                if (socket && socket.connected) {
+                    socket.emit('heartbeat');
+                }
+            }, 30000);
+        }
+        
+        async function loadOrders() {
+            try {
+                console.log('Loading orders...');
+                const response = await fetch('http://localhost:3000/api/orders', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                console.log('Orders loaded:', data);
+                
+                if (data.success) {
+                    currentOrders = data.data;
+                    displayOrders();
+                    updateStats();
+                } else {
+                    console.error('Failed to load orders:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                document.getElementById('ordersGrid').innerHTML = '<div class="col-span-full text-center py-12 text-red-500">Error loading orders. Please refresh.</div>';
+            }
+        }
+        
+        function displayOrders() {
+            let filtered = currentOrders;
+            if (currentFilter !== 'all') {
+                filtered = currentOrders.filter(order => order.status === currentFilter);
+            }
+            
+            const searchTerm = document.getElementById('searchOrders')?.value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(order => 
+                    order.customerPhone?.includes(searchTerm) ||
+                    (order.vehiclePlateNumber && order.vehiclePlateNumber.toLowerCase().includes(searchTerm)) ||
+                    (order.orderNumber && order.orderNumber.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            const grid = document.getElementById('ordersGrid');
+            
+            if (!filtered || filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500">No orders found</div>`;
+                return;
+            }
+            
+            grid.innerHTML = filtered.map(order => `
+                <div class="order-card p-4 shadow-lg border ${order.status === 'ready' ? 'border-green-500' : 'border-gray-200'}" onclick="openOrderModal('${order._id}')">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <span class="font-bold text-lg">#${order.orderNumber}</span>
+                            ${order.source === 'call_center' ? '<span class="ml-2 bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded"><i class="fas fa-phone-alt mr-1"></i>Call Center</span>' : ''}
+                        </div>
+                        <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span>
+                    </div>
+                    <div class="mb-3 text-sm">
+                        <div class="flex items-center text-gray-600 mb-1"><i class="fas fa-user w-5"></i>${order.customerFirstName || 'Guest'} ${order.customerLastName || ''}</div>
+                        <div class="flex items-center text-gray-600 mb-1"><i class="fas fa-phone w-5"></i>${order.customerPhone}</div>
+                        ${order.vehiclePlateNumber ? `<div class="flex items-center text-gray-600"><i class="fas fa-car w-5"></i><span class="font-mono">${order.vehiclePlateNumber}</span></div>` : ''}
+                    </div>
+                    <div class="border-t pt-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">${order.items?.length || 0} items</span>
+                            <span class="font-bold text-lg">$${(order.total || 0).toFixed(2)}</span>
+                        </div>
+                        <div class="text-xs ${order.paymentStatus === 'paid' ? 'text-green-600' : 'text-red-600'} mt-1">
+                            ${order.paymentStatus === 'paid' ? '✓ Paid' : '⚠ Unpaid - Collect on pickup'}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function filterOrders(status) {
+            currentFilter = status;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-200');
+            });
+            event.target.classList.remove('bg-gray-200');
+            event.target.classList.add('bg-indigo-600', 'text-white');
+            displayOrders();
+        }
+        
+        async function openOrderModal(orderId) {
+            try {
+                const response = await fetch(`http://localhost:3000/api/orders/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const order = data.data;
+                    
+                    document.getElementById('modalTitle').innerHTML = `Order #${order.orderNumber}`;
+                    document.getElementById('orderModalContent').innerHTML = `
+                        <div class="space-y-4">
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <h4 class="font-semibold mb-2">Customer Information</h4>
+                                <div class="text-sm"><strong>Name:</strong> ${order.customerFirstName || 'N/A'} ${order.customerLastName || ''}</div>
+                                <div class="text-sm"><strong>Phone:</strong> ${order.customerPhone}</div>
+                                ${order.vehiclePlateNumber ? `<div class="text-sm"><strong>Vehicle:</strong> ${order.vehiclePlateNumber}</div>` : ''}
+                                ${order.orderType === 'curbside' ? '<div class="text-sm text-orange-600"><strong>⚠ Curbside Pickup</strong></div>' : ''}
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-2">Order Items</h4>
+                                ${order.items.map(item => `<div class="flex justify-between text-sm border-b py-1"><span>${item.quantity}x ${item.name}</span><span>$${item.totalPrice.toFixed(2)}</span></div>`).join('')}
+                            </div>
+                            <div class="border-t pt-2">
+                                <div class="flex justify-between"><strong>Total:</strong><strong>$${order.total.toFixed(2)}</strong></div>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <div class="flex justify-between"><strong>Status:</strong> <span class="status-badge status-${order.status}">${order.status}</span></div>
+                                <div class="flex justify-between mt-1"><strong>Payment:</strong> <span class="${order.paymentStatus === 'paid' ? 'text-green-600' : 'text-red-600'}">${order.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}</span></div>
+                                ${order.specialInstructions ? `<div class="mt-2"><strong>Instructions:</strong><p class="text-sm mt-1">${order.specialInstructions}</p></div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('modalActions').innerHTML = getActionButtons(order);
+                    document.getElementById('orderModal').classList.remove('hidden');
+                    document.getElementById('orderModal').classList.add('flex');
+                }
+            } catch (error) {
+                console.error('Error opening order:', error);
+                showToast('Error loading order details', 'error');
+            }
+        }
+        
+        function getActionButtons(order) {
+            if (order.status === 'pending') {
+                return `<button onclick="updateOrderStatus('${order._id}', 'confirmed')" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Confirm Order</button>
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Close</button>`;
+            }
+            if (order.status === 'confirmed') {
+                return `<button onclick="updateOrderStatus('${order._id}', 'preparing')" class="px-4 py-2 bg-yellow-600 text-white rounded-lg">Start Preparing</button>
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Close</button>`;
+            }
+            if (order.status === 'preparing') {
+                return `<button onclick="updateOrderStatus('${order._id}', 'ready')" class="px-4 py-2 bg-green-600 text-white rounded-lg">Mark Ready</button>
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Close</button>`;
+            }
+            if (order.status === 'ready') {
+                return `<button onclick="completeOrder('${order._id}')" class="px-4 py-2 bg-indigo-600 text-white rounded-lg"><i class="fas fa-cash-register mr-2"></i>Process Payment</button>
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Close</button>`;
+            }
+            return `<button onclick="closeOrderModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Close</button>`;
+        }
+        
+        async function updateOrderStatus(orderId, status) {
+            try {
+                const response = await fetch(`http://localhost:3000/api/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ status })
+                });
+                if (response.ok) {
+                    showToast(`Order status updated to ${status}`, 'success');
+                    if (socket && socket.connected) {
+                        socket.emit('order_status_update', { orderId, status });
+                    }
+                    closeOrderModal();
+                    loadOrders();
+                }
+            } catch (error) {
+                showToast('Error updating order', 'error');
+            }
+        }
+        
+        async function completeOrder(orderId) {
+            const method = confirm('Click OK for Cash payment, Cancel for Card') ? 'cash' : 'card';
+            try {
+                const response = await fetch(`http://localhost:3000/api/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ status: 'completed', paymentStatus: 'paid' })
+                });
+                if (response.ok) {
+                    showToast(`Order completed! Payment: ${method.toUpperCase()}`, 'success');
+                    if (socket && socket.connected) {
+                        socket.emit('order_status_update', { orderId, status: 'completed', paymentStatus: 'paid' });
+                    }
+                    closeOrderModal();
+                    loadOrders();
+                }
+            } catch (error) {
+                showToast('Error completing order', 'error');
+            }
+        }
+        
+        function updateStats() {
+            const pending = currentOrders.filter(o => ['pending', 'confirmed'].includes(o.status)).length;
+            const preparing = currentOrders.filter(o => o.status === 'preparing').length;
+            const ready = currentOrders.filter(o => o.status === 'ready').length;
+            document.getElementById('pendingCount').innerText = pending;
+            document.getElementById('preparingCount').innerText = preparing;
+            document.getElementById('readyCount').innerText = ready;
+            
+            const todayRevenue = currentOrders.filter(o => o.status === 'completed' && o.paymentStatus === 'paid')
+                .reduce((sum, o) => sum + (o.total || 0), 0);
+            document.getElementById('todayRevenue').innerText = `$${todayRevenue.toFixed(2)}`;
+        }
+        
+        function playNotificationSound() {
+            try {
+                const audio = new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZCBub3QgYXZhaWxhYmxl');
+                audio.play().catch(e => console.log('Sound not supported'));
+            } catch(e) {}
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+        
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+            document.getElementById('orderModal').classList.remove('flex');
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+        
+        document.getElementById('searchOrders')?.addEventListener('input', () => displayOrders());
+    </script>
+</body>
+</html>

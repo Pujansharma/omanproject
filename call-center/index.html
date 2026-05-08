@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Center Dashboard - Dynamic Order Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .sidebar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: all 0.3s ease; }
+        .stat-card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .order-card { transition: all 0.3s ease; cursor: pointer; }
+        .order-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .status-badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .status-pending { background: #FEF3C7; color: #92400E; }
+        .status-confirmed { background: #DBEAFE; color: #1E40AF; }
+        .status-preparing { background: #E0E7FF; color: #3730A3; }
+        .status-ready { background: #D1FAE5; color: #065F46; }
+        .status-completed { background: #D1FAE5; color: #065F46; }
+        .status-cancelled { background: #FEE2E2; color: #991B1B; }
+        .branch-online { color: #10B981; }
+        .branch-offline { color: #EF4444; }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast { position: fixed; bottom: 20px; right: 20px; z-index: 1000; animation: slideInRight 0.3s ease-out; }
+        .item-card { transition: all 0.2s ease; }
+        .item-card:hover { background: #f9fafb; }
+        .modal { transition: opacity 0.25s ease; }
+        .customer-card { cursor: pointer; transition: all 0.2s ease; }
+        .customer-card:hover { background: #f3f4f6; transform: translateX(4px); }
+    </style>
+</head>
+<body>
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar w-64 shadow-xl">
+            <div class="p-6">
+                <div class="flex items-center space-x-3 mb-8">
+                    <i class="fas fa-phone-alt text-white text-2xl"></i>
+                    <span class="text-white font-bold text-xl">Call Center</span>
+                </div>
+                <nav class="space-y-2">
+                    <a href="#" onclick="showNewOrder()" class="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white bg-opacity-20 text-white">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>New Order</span>
+                    </a>
+                    <a href="#" onclick="showOrders()" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-white hover:bg-white hover:bg-opacity-20 transition">
+                        <i class="fas fa-history"></i>
+                        <span>Order History</span>
+                    </a>
+                    <a href="#" onclick="showCustomers()" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-white hover:bg-white hover:bg-opacity-20 transition">
+                        <i class="fas fa-users"></i>
+                        <span>Manage Customers</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="absolute bottom-0 w-64 p-6 border-t border-white border-opacity-20">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-user-circle text-white text-2xl"></i>
+                        <div>
+                            <p class="text-white text-sm font-medium" id="agentName">Loading...</p>
+                            <p class="text-white text-xs opacity-75">Call Center Agent</p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="text-white hover:text-gray-200"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto">
+            <header class="bg-white shadow-sm sticky top-0 z-40">
+                <div class="px-6 py-4">
+                    <div class="flex justify-between items-center">
+                        <h1 class="text-2xl font-semibold text-gray-800" id="pageTitle">New Order</h1>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-2" id="connectionStatus">
+                                <i class="fas fa-circle text-green-500 text-xs"></i>
+                                <span class="text-sm text-gray-600">Connected</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <main class="p-6" id="mainContent"></main>
+        </div>
+    </div>
+    
+    <!-- Add Customer Modal -->
+    <div id="addCustomerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 modal">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Add New Customer</h3>
+                <button onclick="closeAddCustomerModal()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="addCustomerForm">
+                <div class="space-y-3">
+                    <input type="text" id="newFirstName" placeholder="First Name" required class="w-full p-2 border rounded-lg">
+                    <input type="text" id="newLastName" placeholder="Last Name" required class="w-full p-2 border rounded-lg">
+                    <input type="tel" id="newPhone" placeholder="Phone Number (e.g., +1234567890)" required class="w-full p-2 border rounded-lg">
+                    <input type="text" id="newVehiclePlate" placeholder="Vehicle Plate (Optional)" class="w-full p-2 border rounded-lg">
+                    <div class="flex justify-end space-x-3 mt-4">
+                        <button type="button" onclick="closeAddCustomerModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Create Customer</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"><div class="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg"><span id="toastMessage"></span></div></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = null, token = localStorage.getItem('token'), currentCustomer = null, menuItems = [], branches = [], allOrders = [], allCustomers = [], currentUser = null, currentView = 'newOrder';
+        
+        const menuCatalog = {
+            'burger': { name: 'Classic Burger', price: 8.99, category: 'Burgers' },
+            'cheese_burger': { name: 'Cheese Burger', price: 9.99, category: 'Burgers' },
+            'veggie_burger': { name: 'Veggie Burger', price: 8.99, category: 'Burgers' },
+            'fries': { name: 'French Fries', price: 3.99, category: 'Sides' },
+            'onion_rings': { name: 'Onion Rings', price: 4.99, category: 'Sides' },
+            'soda': { name: 'Soft Drink', price: 1.99, category: 'Beverages' },
+            'milkshake': { name: 'Milkshake', price: 4.99, category: 'Beverages' },
+            'salad': { name: 'Garden Salad', price: 6.99, category: 'Salads' },
+            'chicken_wings': { name: 'Chicken Wings (6pcs)', price: 7.99, category: 'Appetizers' },
+            'nachos': { name: 'Nachos', price: 5.99, category: 'Appetizers' }
+        };
+        
+        if (!token) window.location.href = '/login.html';
+        
+        document.addEventListener('DOMContentLoaded', () => { loadUserInfo(); loadBranches(); loadCustomers(); connectWebSocket(); showNewOrder(); });
+        
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) { currentUser = data.data; document.getElementById('agentName').innerText = currentUser.username; }
+            } catch (error) { console.error('Error loading user info:', error); }
+        }
+        
+        async function loadBranches() {
+            try {
+                const response = await fetch('http://localhost:3000/api/branches', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) { branches = data.data; updateBranchSelect(); }
+            } catch (error) { console.error('Error loading branches:', error); }
+        }
+        
+        async function loadCustomers() {
+            try {
+                const response = await fetch('http://localhost:3000/api/customers?limit=100', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) { allCustomers = data.data; updateCustomerList(); }
+            } catch (error) { console.error('Error loading customers:', error); }
+        }
+        
+        function updateBranchSelect() {
+            const branchSelect = document.getElementById('branchSelect');
+            if (branchSelect) branchSelect.innerHTML = '<option value="">Select Branch</option>' + branches.map(b => `<option value="${b._id}">${b.name}</option>`).join('');
+        }
+        
+        function updateCustomerList() {
+            const customerList = document.getElementById('customerList');
+            if (customerList) {
+                if (allCustomers.length === 0) customerList.innerHTML = '<div class="text-center py-4 text-gray-500">No customers found. Click "Add New Customer" to create one.</div>';
+                else customerList.innerHTML = allCustomers.map(c => `<div class="customer-card p-3 border-b hover:bg-gray-50 cursor-pointer" onclick="selectCustomer('${c._id}')"><div class="font-medium">${c.firstName} ${c.lastName}</div><div class="text-sm text-gray-500"><i class="fas fa-phone mr-1"></i>${c.phoneNumber} ${c.vehicleDetails?.plateNumber ? `<i class="fas fa-car ml-2 mr-1"></i>${c.vehicleDetails.plateNumber}` : ''}</div></div>`).join('');
+            }
+        }
+        
+        function selectCustomer(customerId) {
+            currentCustomer = allCustomers.find(c => c._id === customerId);
+            document.getElementById('customerInfo').classList.remove('hidden');
+            document.getElementById('customerName').innerHTML = `${currentCustomer.firstName} ${currentCustomer.lastName}`;
+            document.getElementById('customerPhone').innerHTML = `<i class="fas fa-phone mr-1"></i>${currentCustomer.phoneNumber}`;
+            document.getElementById('customerVehicle').innerHTML = currentCustomer.vehicleDetails?.plateNumber ? `<i class="fas fa-car mr-1"></i>${currentCustomer.vehicleDetails.plateNumber}` : 'No vehicle registered';
+            document.getElementById('totalOrders').innerText = currentCustomer.totalOrders || 0;
+            document.getElementById('totalSpent').innerText = (currentCustomer.totalSpent || 0).toFixed(2);
+            if (currentCustomer.vehicleDetails?.plateNumber) document.getElementById('vehiclePlate').value = currentCustomer.vehicleDetails.plateNumber;
+            showToast(`Customer ${currentCustomer.firstName} ${currentCustomer.lastName} selected`, 'success');
+            document.getElementById('customerSearchSection').classList.add('hidden');
+        }
+        
+        function showCustomerSearch() {
+            document.getElementById('customerSearchSection').classList.remove('hidden');
+            document.getElementById('customerInfo').classList.add('hidden');
+            loadCustomers();
+        }
+        
+        function clearCustomer() { currentCustomer = null; document.getElementById('customerInfo').classList.add('hidden'); document.getElementById('customerSearchSection').classList.remove('hidden'); }
+        
+        function showAddCustomerModal() { document.getElementById('addCustomerModal').classList.remove('hidden'); document.getElementById('addCustomerModal').classList.add('flex'); }
+        
+        function closeAddCustomerModal() { document.getElementById('addCustomerModal').classList.add('hidden'); document.getElementById('addCustomerModal').classList.remove('flex'); }
+        
+        document.getElementById('addCustomerForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phoneNumber = document.getElementById('newPhone').value;
+            const firstName = document.getElementById('newFirstName').value;
+            const lastName = document.getElementById('newLastName').value;
+            const vehiclePlate = document.getElementById('newVehiclePlate').value;
+            try {
+                const response = await fetch('http://localhost:3000/api/customers', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ phoneNumber, firstName, lastName, vehicleDetails: { plateNumber: vehiclePlate } })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Customer created successfully!', 'success');
+                    closeAddCustomerModal();
+                    loadCustomers();
+                    document.getElementById('addCustomerForm').reset();
+                    setTimeout(() => { selectCustomer(data.data._id); }, 500);
+                } else showToast('Error creating customer', 'error');
+            } catch (error) { showToast('Error creating customer', 'error'); }
+        });
+        
+        function connectWebSocket() {
+            socket = io({ auth: { token }, transports: ['websocket', 'polling'] });
+            socket.on('connect', () => { showToast('Connected to server', 'success'); document.getElementById('connectionStatus').innerHTML = `<i class="fas fa-circle text-green-500 text-xs"></i><span class="text-sm">Connected</span>`; });
+            socket.on('disconnect', () => { showToast('Disconnected from server', 'error'); document.getElementById('connectionStatus').innerHTML = `<i class="fas fa-circle text-red-500 text-xs"></i><span class="text-sm">Disconnected</span>`; });
+            socket.on('order_updated', (data) => { showToast(`Order ${data.orderId} status updated`, 'info'); if (currentView === 'orders') loadOrders(); });
+        }
+        
+        function showNewOrder() {
+            currentView = 'newOrder';
+            document.getElementById('pageTitle').innerHTML = '<i class="fas fa-plus-circle mr-2"></i>New Order';
+            document.getElementById('mainContent').innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1"><div class="bg-white rounded-lg shadow-lg sticky top-20">
+                        <div class="p-6 border-b"><h3 class="text-lg font-semibold mb-4">Customer Information</h3>
+                            <div id="customerSearchSection">
+                                <button onclick="showAddCustomerModal()" class="w-full mb-3 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"><i class="fas fa-user-plus mr-2"></i>Add New Customer</button>
+                                <div class="relative mb-3"><i class="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" id="customerSearch" placeholder="Search customers..." class="w-full pl-10 pr-3 py-2 border rounded-lg"></div>
+                                <div id="customerList" class="max-h-64 overflow-y-auto border rounded-lg">Loading customers...</div>
+                            </div>
+                            <div id="customerInfo" class="hidden bg-gray-50 rounded-lg p-4">
+                                <div class="flex justify-between items-start mb-3"><div><p class="font-semibold text-lg" id="customerName"></p><p class="text-sm text-gray-600" id="customerPhone"></p><p class="text-sm text-gray-600" id="customerVehicle"></p></div><button onclick="clearCustomer()" class="text-red-500"><i class="fas fa-times"></i></button></div>
+                                <div class="flex justify-between text-sm mb-3"><span>Total Orders: <strong id="totalOrders">0</strong></span><span>Total Spent: $<strong id="totalSpent">0</strong></span></div>
+                                <button onclick="showCustomerSearch()" class="text-indigo-600 text-sm hover:underline"><i class="fas fa-exchange-alt mr-1"></i>Change Customer</button>
+                            </div>
+                        </div>
+                        <div class="p-6"><h3 class="text-lg font-semibold mb-4">Order Details</h3>
+                            <div class="space-y-4"><select id="branchSelect" class="w-full p-2 border rounded-lg"><option value="">Select Branch</option></select>
+                            <select id="orderType" class="w-full p-2 border rounded-lg" onchange="toggleVehicleField()"><option value="takeaway">Takeaway</option><option value="curbside">Curbside Pickup</option></select>
+                            <div><label class="block text-sm font-medium mb-1">Car Plate Number</label><input type="text" id="vehiclePlate" placeholder="Enter car plate number" class="w-full p-2 border rounded-lg"></div>
+                            <textarea id="specialInstructions" rows="3" placeholder="Special instructions" class="w-full p-2 border rounded-lg"></textarea></div>
+                        </div>
+                    </div></div>
+                    <div class="lg:col-span-2"><div class="bg-white rounded-lg shadow-lg">
+                        <div class="p-6 border-b"><div class="flex justify-between items-center"><h3 class="text-lg font-semibold">Menu Items</h3><button onclick="addMenuItem()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"><i class="fas fa-plus mr-2"></i>Add Item</button></div></div>
+                        <div class="p-6"><div id="menuItemsList" class="space-y-3 max-h-96 overflow-y-auto"><p class="text-gray-500 text-center py-8">No items added. Click "Add Item" to start.</p></div>
+                        <div class="border-t mt-6 pt-6"><div class="space-y-2"><div class="flex justify-between"><span>Subtotal:</span><span>$<span id="subtotal">0.00</span></span></div><div class="flex justify-between"><span>Tax (10%):</span><span>$<span id="tax">0.00</span></span></div><div class="flex justify-between text-xl font-bold pt-2 border-t"><span>Total:</span><span>$<span id="total">0.00</span></span></div></div>
+                        <button onclick="submitOrder()" id="submitBtn" class="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700"><i class="fas fa-paper-plane mr-2"></i>Send Order to Branch</button></div></div>
+                    </div></div>
+                </div>`;
+            loadBranches(); loadCustomers();
+            document.getElementById('customerSearch')?.addEventListener('input', (e) => { const search = e.target.value.toLowerCase(); const filtered = allCustomers.filter(c => c.firstName.toLowerCase().includes(search) || c.lastName.toLowerCase().includes(search) || c.phoneNumber.includes(search)); document.getElementById('customerList').innerHTML = filtered.map(c => `<div class="customer-card p-3 border-b cursor-pointer hover:bg-gray-50" onclick="selectCustomer('${c._id}')"><div class="font-medium">${c.firstName} ${c.lastName}</div><div class="text-sm text-gray-500">${c.phoneNumber}</div></div>`).join(''); });
+        }
+        
+        function toggleVehicleField() { const orderType = document.getElementById('orderType').value; const vehicleField = document.getElementById('vehiclePlate'); if (orderType === 'curbside') vehicleField.placeholder = 'Car Plate Number (Required)'; else vehicleField.placeholder = 'Car Plate Number (Optional)'; }
+        
+        function addMenuItem() { menuItems.push({ id: Date.now(), productId: '', name: '', quantity: 1, unitPrice: 0, totalPrice: 0 }); renderMenuItems(); }
+        function removeMenuItem(index) { menuItems.splice(index, 1); renderMenuItems(); calculateTotals(); }
+        function updateMenuItem(index, field, value) { if (field === 'productId') { const product = menuCatalog[value]; if (product) { menuItems[index].productId = value; menuItems[index].name = product.name; menuItems[index].unitPrice = product.price; menuItems[index].totalPrice = product.price * menuItems[index].quantity; } } else if (field === 'quantity') { const qty = parseInt(value) || 0; menuItems[index].quantity = qty; menuItems[index].totalPrice = menuItems[index].unitPrice * qty; } renderMenuItems(); calculateTotals(); }
+        
+        function renderMenuItems() {
+            const container = document.getElementById('menuItemsList');
+            if (!container) return;
+            if (menuItems.length === 0) { container.innerHTML = '<p class="text-gray-500 text-center py-8">No items added. Click "Add Item" to start.</p>'; return; }
+            container.innerHTML = menuItems.map((item, idx) => `<div class="item-card bg-gray-50 rounded-lg p-4"><div class="grid grid-cols-12 gap-3"><div class="col-span-6"><select class="w-full p-2 border rounded-lg text-sm" onchange="updateMenuItem(${idx}, 'productId', this.value)"><option value="">Select Item</option>${Object.entries(menuCatalog).map(([id, product]) => `<option value="${id}" ${item.productId === id ? 'selected' : ''}>${product.name} - $${product.price}</option>`).join('')}</select></div><div class="col-span-3"><input type="number" value="${item.quantity}" min="1" class="w-full p-2 border rounded-lg text-sm" onchange="updateMenuItem(${idx}, 'quantity', this.value)"></div><div class="col-span-2"><div class="p-2 text-right font-medium">$${item.totalPrice.toFixed(2)}</div></div><div class="col-span-1"><button onclick="removeMenuItem(${idx})" class="text-red-500"><i class="fas fa-trash"></i></button></div></div></div>`).join('');
+        }
+        
+        function calculateTotals() { const subtotal = menuItems.reduce((sum, item) => sum + item.totalPrice, 0); const tax = subtotal * 0.10; const total = subtotal + tax; document.getElementById('subtotal').innerText = subtotal.toFixed(2); document.getElementById('tax').innerText = tax.toFixed(2); document.getElementById('total').innerText = total.toFixed(2); }
+        
+    async function submitOrder() {
+    if (!currentCustomer) {
+        showToast('Please select a customer first', 'warning');
+        return;
+    }
+    
+    const branchId = document.getElementById('branchSelect').value;
+    if (!branchId) {
+        showToast('Please select a branch', 'warning');
+        return;
+    }
+    
+    const validItems = menuItems.filter(item => item.productId && item.quantity > 0);
+    if (validItems.length === 0) {
+        showToast('Please add at least one menu item', 'warning');
+        return;
+    }
+    
+    const orderType = document.getElementById('orderType').value;
+    const vehiclePlate = document.getElementById('vehiclePlate').value;
+    
+    if (orderType === 'curbside' && !vehiclePlate) {
+        showToast('Car plate number is required for curbside pickup', 'warning');
+        return;
+    }
+    
+    const subtotal = validItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const tax = subtotal * 0.10;
+    const total = subtotal + tax;
+    
+    const orderData = {
+        customer: currentCustomer._id,
+        customerFirstName: currentCustomer.firstName,
+        customerLastName: currentCustomer.lastName,
+        customerPhone: currentCustomer.phoneNumber,
+        vehiclePlateNumber: vehiclePlate || currentCustomer.vehicleDetails?.plateNumber,
+        branch: branchId,
+        items: validItems.map(item => ({
+            productId: item.productId,
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice
+        })),
+        subtotal,
+        tax,
+        total,
+        orderType,
+        specialInstructions: document.getElementById('specialInstructions').value || '',
+        autoPrint: true
+    };
+    
+    console.log('Submitting order:', orderData);
+    
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending Order...';
+    
+    // Try WebSocket first
+    if (socket && socket.connected) {
+        socket.emit('new_order', orderData, (response) => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Order to Branch';
+            
+            if (response && response.success) {
+                showToast(`Order ${response.orderNumber} sent successfully!`, 'success');
+                resetOrderForm();
+                loadCustomers();
+                loadOrders();
+            } else {
+                // Fallback to HTTP API
+                sendOrderViaHTTP(orderData, submitBtn);
+            }
+        });
+    } else {
+        // Use HTTP API
+        await sendOrderViaHTTP(orderData, submitBtn);
+    }
+}
+
+async function sendOrderViaHTTP(orderData, submitBtn) {
+    try {
+        const response = await fetch('http://localhost:3000/api/orders/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(orderData)
+        });
+        
+        const data = await response.json();
+        
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Order to Branch';
+        
+        if (data.success) {
+            showToast(`Order ${data.orderNumber} sent successfully!`, 'success');
+            resetOrderForm();
+            loadCustomers();
+            loadOrders();
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Order to Branch';
+        showToast('Network error: Could not send order', 'error');
+        console.error('HTTP order error:', error);
+    }
+}
+        
+        function resetOrderForm() { menuItems = []; renderMenuItems(); calculateTotals(); document.getElementById('specialInstructions').value = ''; document.getElementById('vehiclePlate').value = ''; clearCustomer(); }
+        
+        async function showOrders() { currentView = 'orders'; document.getElementById('pageTitle').innerHTML = '<i class="fas fa-history mr-2"></i>Order History'; await loadOrders(); }
+        
+        async function loadOrders() {
+            try { const response = await fetch('http://localhost:3000/api/orders?limit=50', { headers: { 'Authorization': `Bearer ${token}` } }); const data = await response.json(); if (data.success) { allOrders = data.data; displayOrders(); } } 
+            catch (error) { console.error('Error loading orders:', error); }
+        }
+        
+        function displayOrders() {
+            document.getElementById('mainContent').innerHTML = `<div class="bg-white rounded-lg shadow-lg"><div class="p-6 border-b"><div class="relative"><i class="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" id="searchOrders" placeholder="Search by order number, phone, or car plate..." class="w-full pl-10 pr-4 py-2 border rounded-lg"></div></div><div class="divide-y max-h-96 overflow-y-auto" id="ordersList">${allOrders.map(order => `<div class="p-4 hover:bg-gray-50 transition cursor-pointer" onclick="viewOrderDetails('${order._id}')"><div class="flex justify-between items-start"><div class="flex-1"><div class="flex items-center space-x-2 mb-2"><span class="font-semibold">#${order.orderNumber}</span><span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span>${order.source === 'call_center' ? '<span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded"><i class="fas fa-phone-alt mr-1"></i>Call Center</span>' : ''}</div><div class="text-sm text-gray-600 grid grid-cols-2 gap-2"><div><i class="fas fa-user mr-1"></i>${order.customer?.firstName || 'Guest'} ${order.customer?.lastName || ''}</div><div><i class="fas fa-phone mr-1"></i>${order.customerPhone}</div>${order.vehiclePlateNumber ? `<div><i class="fas fa-car mr-1"></i>${order.vehiclePlateNumber}</div>` : ''}<div><i class="fas fa-store mr-1"></i>${order.branch?.name || 'N/A'}</div><div><i class="fas fa-clock mr-1"></i>${new Date(order.createdAt).toLocaleString()}</div><div><i class="fas fa-dollar-sign mr-1"></i>$${order.total.toFixed(2)}</div></div></div></div></div>`).join('')}</div></div>`;
+            document.getElementById('searchOrders')?.addEventListener('input', (e) => { const searchTerm = e.target.value.toLowerCase(); const filtered = allOrders.filter(order => order.orderNumber.toLowerCase().includes(searchTerm) || order.customerPhone.includes(searchTerm) || (order.vehiclePlateNumber && order.vehiclePlateNumber.toLowerCase().includes(searchTerm))); document.getElementById('ordersList').innerHTML = filtered.map(order => `<div class="p-4 hover:bg-gray-50 transition cursor-pointer" onclick="viewOrderDetails('${order._id}')">...</div>`).join(''); });
+        }
+        
+        function showCustomers() { currentView = 'customers'; document.getElementById('pageTitle').innerHTML = '<i class="fas fa-users mr-2"></i>Manage Customers'; document.getElementById('mainContent').innerHTML = `<div class="bg-white rounded-lg shadow-lg"><div class="p-6 border-b"><div class="flex justify-between items-center"><h3 class="text-lg font-semibold">All Customers</h3><button onclick="showAddCustomerModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-user-plus mr-2"></i>Add Customer</button></div><div class="relative mt-4"><i class="fas fa-search absolute left-3 top-3 text-gray-400"></i><input type="text" id="searchCustomerList" placeholder="Search customers..." class="w-full pl-10 pr-4 py-2 border rounded-lg"></div></div><div id="allCustomersList" class="divide-y max-h-96 overflow-y-auto">${allCustomers.map(c => `<div class="p-4 flex justify-between items-center"><div><div class="font-medium">${c.firstName} ${c.lastName}</div><div class="text-sm text-gray-500">${c.phoneNumber} ${c.vehicleDetails?.plateNumber ? `• ${c.vehicleDetails.plateNumber}` : ''}</div><div class="text-xs text-gray-400">Orders: ${c.totalOrders || 0} | Spent: $${(c.totalSpent || 0).toFixed(2)}</div></div><button onclick="selectCustomer('${c._id}'); showNewOrder();" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm">Select</button></div>`).join('')}</div></div>`; document.getElementById('searchCustomerList')?.addEventListener('input', (e) => { const search = e.target.value.toLowerCase(); const filtered = allCustomers.filter(c => c.firstName.toLowerCase().includes(search) || c.lastName.toLowerCase().includes(search) || c.phoneNumber.includes(search)); document.getElementById('allCustomersList').innerHTML = filtered.map(c => `<div class="p-4 flex justify-between items-center"><div>...</div><button onclick="selectCustomer('${c._id}'); showNewOrder();" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm">Select</button></div>`).join(''); }); }
+        
+        function viewOrderDetails(orderId) { const order = allOrders.find(o => o._id === orderId); if (order) alert(`Order #${order.orderNumber}\nCustomer: ${order.customer?.firstName} ${order.customer?.lastName}\nPhone: ${order.customerPhone}\nVehicle: ${order.vehiclePlateNumber || 'N/A'}\nTotal: $${order.total.toFixed(2)}\nStatus: ${order.status}\nPayment: ${order.paymentStatus}`); }
+        
+        function showToast(message, type = 'info') { const toast = document.getElementById('toast'); document.getElementById('toastMessage').innerText = message; toast.classList.remove('hidden'); const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : type === 'warning' ? 'bg-yellow-600' : 'bg-gray-800'; toast.querySelector('div').className = `${bgColor} text-white px-4 py-2 rounded-lg shadow-lg`; setTimeout(() => toast.classList.add('hidden'), 3000); }
+        
+        function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login.html'; }
+    </script>
+</body>
+</html>
